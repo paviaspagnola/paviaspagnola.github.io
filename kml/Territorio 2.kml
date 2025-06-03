@@ -1,0 +1,69 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>Territori Pavia</name>
+    <Style id="poly-880E4F-2301-0-nodesc-normal">
+      <LineStyle>
+        <color>ff4f0e88</color>
+        <width>2.301</width>
+      </LineStyle>
+      <PolyStyle>
+        <color>004f0e88</color>
+        <fill>1</fill>
+        <outline>1</outline>
+      </PolyStyle>
+      <BalloonStyle>
+        <text>&lt;h3&gt;$[name]&lt;/h3&gt;</text>
+      </BalloonStyle>
+    </Style>
+    <Style id="poly-880E4F-2301-0-nodesc-highlight">
+      <LineStyle>
+        <color>ff4f0e88</color>
+        <width>3.4515</width>
+      </LineStyle>
+      <PolyStyle>
+        <color>004f0e88</color>
+        <fill>1</fill>
+        <outline>1</outline>
+      </PolyStyle>
+      <BalloonStyle>
+        <text>&lt;h3&gt;$[name]&lt;/h3&gt;</text>
+      </BalloonStyle>
+    </Style>
+    <StyleMap id="poly-880E4F-2301-0-nodesc">
+      <Pair>
+        <key>normal</key>
+        <styleUrl>#poly-880E4F-2301-0-nodesc-normal</styleUrl>
+      </Pair>
+      <Pair>
+        <key>highlight</key>
+        <styleUrl>#poly-880E4F-2301-0-nodesc-highlight</styleUrl>
+      </Pair>
+    </StyleMap>
+    <Placemark>
+      <name>Territorio 2</name>
+      <styleUrl>#poly-880E4F-2301-0-nodesc</styleUrl>
+      <Polygon>
+        <outerBoundaryIs>
+          <LinearRing>
+            <tessellate>1</tessellate>
+            <coordinates>
+              9.163501,45.214757,0
+              9.162631,45.212785,0
+              9.160914,45.213118,0
+              9.160635,45.21271,0
+              9.155228,45.213783,0
+              9.154241,45.210805,0
+              9.16203,45.209641,0
+              9.161601,45.208356,0
+              9.164798,45.209308,0
+              9.166541,45.214456,0
+              9.165029,45.214068,0
+              9.164466,45.214217,0
+              9.16433,45.214275,0
+              9.164398,45.214552,0
+              9.163501,45.214757,0
+            </coordinates>
+          </LinearRing>
+        </outerBoundaryIs>
+      </Polygon>
+    </Placemark>
+    </Document></kml>

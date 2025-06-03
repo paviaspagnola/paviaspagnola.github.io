@@ -1,0 +1,77 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>Territori Pavia</name>
+    <Style id="poly-880E4F-2301-0-nodesc-normal">
+      <LineStyle>
+        <color>ff4f0e88</color>
+        <width>2.301</width>
+      </LineStyle>
+      <PolyStyle>
+        <color>004f0e88</color>
+        <fill>1</fill>
+        <outline>1</outline>
+      </PolyStyle>
+      <BalloonStyle>
+        <text>&lt;h3&gt;$[name]&lt;/h3&gt;</text>
+      </BalloonStyle>
+    </Style>
+    <Style id="poly-880E4F-2301-0-nodesc-highlight">
+      <LineStyle>
+        <color>ff4f0e88</color>
+        <width>3.4515</width>
+      </LineStyle>
+      <PolyStyle>
+        <color>004f0e88</color>
+        <fill>1</fill>
+        <outline>1</outline>
+      </PolyStyle>
+      <BalloonStyle>
+        <text>&lt;h3&gt;$[name]&lt;/h3&gt;</text>
+      </BalloonStyle>
+    </Style>
+    <StyleMap id="poly-880E4F-2301-0-nodesc">
+      <Pair>
+        <key>normal</key>
+        <styleUrl>#poly-880E4F-2301-0-nodesc-normal</styleUrl>
+      </Pair>
+      <Pair>
+        <key>highlight</key>
+        <styleUrl>#poly-880E4F-2301-0-nodesc-highlight</styleUrl>
+      </Pair>
+    </StyleMap>
+    <Placemark>
+      <name>Territorio 21</name>
+      <styleUrl>#poly-880E4F-2301-0-nodesc</styleUrl>
+      <Polygon>
+        <outerBoundaryIs>
+          <LinearRing>
+            <tessellate>1</tessellate>
+            <coordinates>
+              9.1803655,45.1946932,0
+              9.177694,45.193956,0
+              9.1775009,45.1937935,0
+              9.1782358,45.1928068,0
+              9.1770918,45.1923078,0
+              9.177639,45.1918295,0
+              9.1781432,45.1918579,0
+              9.1786904,45.1912322,0
+              9.1793234,45.1913551,0
+              9.1801737,45.1902039,0
+              9.1805385,45.1898032,0
+              9.1811178,45.1895385,0
+              9.181783,45.1891869,0
+              9.1821746,45.1886576,0
+              9.182534,45.1881397,0
+              9.1830758,45.1883136,0
+              9.1832368,45.1885518,0
+              9.182711,45.189754,0
+              9.1820888,45.1910923,0
+              9.1815309,45.1922794,0
+              9.1807208,45.1940638,0
+              9.1805224,45.1945552,0
+              9.1803655,45.1946932,0
+            </coordinates>
+          </LinearRing>
+        </outerBoundaryIs>
+      </Polygon>
+    </Placemark>
+    </Document></kml>

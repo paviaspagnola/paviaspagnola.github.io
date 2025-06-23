@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <title>Mappa Territori</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <style>
+    html, body { margin: 0; padding: 0; height: 100%; }
+    #map { width: 100%; height: 100vh; }
+    .label-class {
+      background-color: rgba(255,255,255,0.7);
+      border-radius: 5px;
+      padding: 2px 5px;
+      font-size: 14px;
+      color: black;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+
+  <!-- Librerie -->
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet-omnivore@0.3.4/leaflet-omnivore.min.js"></script>
+
+  <script>
+    // 1. Inizializza la mappa
+    const map = L.map('map').setView([45.18918, 9.15965], 14);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+
+    // 2. Prepara i contenitori
+    const coloriPerKml     = {};
+    const etichettePerKml  = {};
+
+    // 3. Link al CSV del foglio specifico "FoglioWeb"
+    // Inserisci qui il tuo link CSV pubblicato da Google Sheets:
+    const infoUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vT8dZNPkL1IlAX2SxLdDC8v9hMYMQKW0T2lya2nwf2ZikLFbCNNKM_-8TZndp2uaLfAjcIy6LEcs7nv/pub?gid=443931805&single=true&output=csv";
+
+     // 4. Carica i dati da Sheets
+    fetch(infoUrl)
+      .then(res => res.text())
+      .then(csv => {
+        const righe = csv.trim().split("\n");
+        for (let i = 1; i < righe.length; i++) {
+          // name, color, label
+          const [_, nomeKml, colore, etichetta] = righe[i].split(",").map(x => x.trim());
+          coloriPerKml[nomeKml]    = colore;
+          etichettePerKml[nomeKml] = etichetta;
+        }
+        caricaKml();  // avvia il caricamento dei KML
+      })
+      .catch(err => console.error("Errore fetching CSV:", err));
+
+    // 5. Funzione per caricare e disegnare i KML
+    function caricaKml() {
+      Object.keys(coloriPerKml).forEach(filename => {
+        const colore    = coloriPerKml[filename]    || 'gray';
+        const etichetta = etichettePerKml[filename] || '';
+        const territorioNome = filename
+          .replace('.kml','')
+          .replace(/_/g,' ');
+
+        // estrai lʼultimo numero dal nome, es. "Territorio 12" → "12"
+        const match = territorioNome.match(/(\d+)$/);
+        const territorioId = match ? match[1] : territorioNome;
+
+        omnivore.kml('kml/' + filename)
+          .on('ready', function() {
+            this.eachLayer(function(layer) {
+              // Stile
+              layer.setStyle({
+                color:      'black',
+                weight:     1,
+                fillColor:  colore,
+                fillOpacity: 0.4
+              });
+
+              // Determina testo e azione
+              const isRosso     = (colore.toLowerCase() === 'red');
+              const actionValue = isRosso ? 'ENTRA' : 'SALE';
+              const btnLabel    = isRosso ? 'Consegna' : 'Assegna';
+
+              // Popup: passiamo solo territorioId
+              layer.bindPopup(`
+                <strong>${territorioNome}</strong><br>
+                <button onclick="apriForm('${territorioId}', '${actionValue}')">
+                  ${btnLabel}
+                </button>
+              `);
+
+              // Etichetta centrata
+              const centro = layer.getBounds().getCenter();
+              L.marker(centro, {
+                icon: L.divIcon({
+                  className: 'label-class',
+                  html: `<b>${etichetta}</b>`,
+                  iconSize:   [60, 20],
+                  iconAnchor: [15, 10]
+                })
+              }).addTo(map);
+            });
+          })
+          .addTo(map);
+      });
+    }
+
+
+    // 6. Funzione per aprire il Google Form pre-compilato
+    function apriForm(nomeTerritorio, action) {
+      const baseFormUrl    = "https://docs.google.com/forms/d/e/1FAIpQLSfSaVMedwkFMsL5xeXy-61Ez4HCufIWZw6DeRGWS_factPYEA/viewform";
+      const entryTerritorio= "entry.1420029468";  // sostituisci
+      const entryAction    = "entry.651223679";      // sostituisci
+	  const entryPDF       = "entry.1017323800";
+
+      const params = new URLSearchParams();
+      params.set(entryTerritorio, nomeTerritorio);
+      params.set(entryAction, action);
+	  params.set(entryPDF, "SI");
+	  
+
+      const fullUrl = `${baseFormUrl}?${params.toString()}`;
+      window.open(fullUrl, '_blank');
+    }
+  </script>
+</body>
+</html>

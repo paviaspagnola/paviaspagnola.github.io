@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Tabella da Google Sheets (CSV)</title>
+  <style>
+    table{border-collapse:collapse;width:100%;font-family:Arial}
+    th,td{border:1px solid #ccc;padding:6px;text-align:left}
+    th{background:#f4f4f4}
+    #message{margin:8px 0;color:#333}
+  </style>
+</head>
+<body>
+  <h1>Programa Reuniones</h1>
+
+  <div id="message"></div>
+  <div id="table-wrap"></div>
+
+  <!-- PapaParse per parsing CSV robusto -->
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+
+  <script>
+    // CONFIG: inserisci qui il tuo sheet id e gid
+    const SHEET_ID = "14JLvzy_5uRqheSjFexyCRcvlouf3Y8D1xX26QucGXM8";
+    const GID = "0"; // cambia se necessario
+
+    // URL standard per esportare CSV (richiede che il foglio sia visibile a chiunque abbia il link)
+    function exportCsvUrl(sheetId, gid) {
+      return `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gid}`;
+    }
+
+    // URL alternativo usato quando si "Pubblica sul web" (fallback)
+    function publishedCsvUrl(sheetId) {
+      // questo URL funziona se hai usato "File → Pubblica sul web" nel foglio Google.
+      return `https://docs.google.com/spreadsheets/d/${sheetId}/pub?output=csv`;
+    }
+
+    async function loadCsv() {
+      const messageEl = document.getElementById('message');
+      const wrap = document.getElementById('table-wrap');
+      messageEl.textContent = "Caricamento...";
+      wrap.innerHTML = "";
+      try {
+        // prima prova con export?format=csv
+        let url = exportCsvUrl(SHEET_ID, GID);
+        let res = await fetch(url, {cache: "no-store"});
+        if (!res.ok) {
+          // prova il fallback "pub?output=csv" (se hai usato "Pubblica sul web")
+          console.warn("export CSV failed, status:", res.status);
+          url = publishedCsvUrl(SHEET_ID);
+          res = await fetch(url, {cache: "no-store"});
+          if (!res.ok) throw new Error("Errore HTTP " + res.status + " (sia export che pub falliti)");
+        }
+        const text = await res.text();
+
+        // usa PapaParse per ottenere array (gestisce virgolette, virgole interne, righe vuote, ecc.)
+        const parsed = Papa.parse(text.trim(), {skipEmptyLines: true});
+        if (parsed.errors && parsed.errors.length) {
+          console.warn("PapaParse warnings/errors:", parsed.errors);
+        }
+        const data = parsed.data;
+        if (!data || data.length === 0) {
+          wrap.innerHTML = "<em>Nessun dato</em>";
+          messageEl.textContent = "Caricamento completato (0 righe).";
+          return;
+        }
+        renderTable(data);
+        messageEl.textContent = "";
+      } catch (err) {
+        console.error(err);
+        // messaggio d'errore utile all'utente
+        let msg = err.message || String(err);
+        // suggerimenti utili se è problema di permessi/CORS
+        msg += ". Se i dati non sono pubblici, assicurati di impostare il foglio su 'Chiunque abbia il link' oppure usa 'File → Pubblica sul web' e prova di nuovo.";
+        document.getElementById('message').textContent = "Errore: " + msg;
+      }
+    }
+
+    function renderTable(data) {
+  const wrap = document.getElementById('table-wrap');
+  wrap.innerHTML = "";
+
+  let currentTable = null;
+  let currentHeaders = [];
+  let tbody = null;
+
+  data.forEach((row, index) => {
+    const isEmptyRow = row.every(cell => cell.trim() === "");
+
+    if (isEmptyRow) {
+      // Se la riga è vuota, chiude l'eventuale tabella in corso
+      if (currentTable) {
+        wrap.appendChild(currentTable);
+        const spacer = document.createElement('div');
+        spacer.style.height = "20px"; // spaziatura tra le tabelle
+        wrap.appendChild(spacer);
+      }
+      currentTable = null;
+      currentHeaders = [];
+      tbody = null;
+      return;
+    }
+
+    // Se non esiste una tabella attiva, crea una nuova
+    if (!currentTable) {
+      currentHeaders = row;
+      currentTable = document.createElement('table');
+      currentTable.style.marginBottom = "10px";
+
+      const thead = document.createElement('thead');
+      const trh = document.createElement('tr');
+      currentHeaders.forEach(h => {
+        const th = document.createElement('th');
+        th.textContent = h;
+        trh.appendChild(th);
+      });
+      thead.appendChild(trh);
+      currentTable.appendChild(thead);
+
+      tbody = document.createElement('tbody');
+      currentTable.appendChild(tbody);
+    } else {
+      // Riga di dati per la tabella corrente
+      const tr = document.createElement('tr');
+      currentHeaders.forEach((_, i) => {
+        const td = document.createElement('td');
+        td.textContent = row[i] ?? "";
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    }
+  });
+
+  // Aggiunge l'ultima tabella se esiste
+  if (currentTable) {
+    wrap.appendChild(currentTable);
+  }
+
+  // Se nessun dato
+  if (wrap.innerHTML.trim() === "") {
+    wrap.innerHTML = "<em>Nessun dato</em>";
+  }
+}
+
+    // Carica automaticamente quando il DOM è pronto
+    document.addEventListener('DOMContentLoaded', () => {
+      // carica subito
+      loadCsv();
+      // e collega il bottone a ricarica manuale
+      document.getElementById('load').addEventListener('click', loadCsv);
+    });
+  </script>
+</body>
+</html>

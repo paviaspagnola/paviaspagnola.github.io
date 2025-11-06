@@ -3,152 +3,299 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Tabella da Google Sheets (CSV)</title>
+  <title>Programa Reuniones - Sezioni colorate</title>
   <style>
-    table{border-collapse:collapse;width:100%;font-family:Arial}
-    th,td{border:1px solid #ccc;padding:6px;text-align:left}
-    th{background:#f4f4f4}
+    body{font-family:Arial;margin:16px}
+    h1{margin-bottom:8px}
+    .controls{margin-bottom:10px}
+    button{padding:8px 10px;border-radius:6px;border:1px solid #ccc;background:#fff;cursor:pointer}
     #message{margin:8px 0;color:#333}
+    .table-wrap table{border-collapse:collapse;width:100%;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,0.06)}
+    .table-wrap th,.table-wrap td{border:1px solid #ddd;padding:8px;text-align:left}
+    .table-wrap thead th{padding:10px 8px}
+    .table-wrap tbody td{background:#fff}
+    .spacer{height:12px}
+    .small-info{font-size:0.9em;color:#555;margin-top:6px}
+    /* palette fissa (modifica qui i colori in ordine) */
+    :root{
+      --pal-0: #212175; /* 1° sezione -  */
+      --pal-1: #565A5D; /* 2° -  */
+      --pal-2: #B88900; /* 3° -  */
+      --pal-3: #7B0023; /* 4° - viola */
+      --pal-4: #800080; /* 5° -  */
+      --pal-5: #ff6e2b; /* 6° -  */
+      --pal-6: #aaaa00; /* 7° - giallo-oliva */
+      --pal-7: #ff00ff; /* 8° - fucsia */
+      --pal-8: #00cc99; /* 9° - verde acqua */
+      --pal-9: #555555; /* 10° - grigio scuro */
+    }
   </style>
 </head>
 <body>
   <h1>Programa Reuniones</h1>
 
   <div id="message"></div>
-  <div id="table-wrap"></div>
+  <div id="table-wrap" class="table-wrap"></div>
 
   <!-- PapaParse per parsing CSV robusto -->
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 
   <script>
-    // CONFIG: inserisci qui il tuo sheet id e gid
-    const SHEET_ID = "14JLvzy_5uRqheSjFexyCRcvlouf3Y8D1xX26QucGXM8";
-    const GID = "0"; // cambia se necessario
+    // CONFIG: inserisci qui il tuo sheet id e i gid per i due fogli (Foglio1 e Foglio2)
+    const SHEET_ID = "14JLvzy_5uRqheSjFexyCRcvlouf3Y8D1xX26QucGXM8"; // sostituisci se necessario
+    const GID1 = "0";            // foglio 1 (usato Lun-Mer)
+    const GID2 = "1748490844";   // foglio 2 (usato Gio-Dom)
 
-    // URL standard per esportare CSV (richiede che il foglio sia visibile a chiunque abbia il link)
+    // palette fissa: ordina i colori come vuoi qui. Aggiungi altri --pal-X in :root se ti servono.
+    const PALETTE = [
+      getComputedStyle(document.documentElement).getPropertyValue('--pal-0').trim() || '#ff0000',
+      getComputedStyle(document.documentElement).getPropertyValue('--pal-1').trim() || '#0000ff',
+      getComputedStyle(document.documentElement).getPropertyValue('--pal-2').trim() || '#00aa00',
+      getComputedStyle(document.documentElement).getPropertyValue('--pal-3').trim() || '#ff9900',
+      getComputedStyle(document.documentElement).getPropertyValue('--pal-4').trim() || '#800080',
+      getComputedStyle(document.documentElement).getPropertyValue('--pal-5').trim() || '#008080',
+      getComputedStyle(document.documentElement).getPropertyValue('--pal-6').trim() || '#aaaa00',
+      getComputedStyle(document.documentElement).getPropertyValue('--pal-7').trim() || '#ff00ff',
+      getComputedStyle(document.documentElement).getPropertyValue('--pal-8').trim() || '#00cc99',
+      getComputedStyle(document.documentElement).getPropertyValue('--pal-9').trim() || '#555555'
+    ];
+
+    // helpers URL
     function exportCsvUrl(sheetId, gid) {
-      return `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gid}`;
+      return `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${encodeURIComponent(gid)}`;
     }
-
-    // URL alternativo usato quando si "Pubblica sul web" (fallback)
     function publishedCsvUrl(sheetId) {
-      // questo URL funziona se hai usato "File → Pubblica sul web" nel foglio Google.
       return `https://docs.google.com/spreadsheets/d/${sheetId}/pub?output=csv`;
     }
 
+    // decide quale gid usare secondo il giorno (browser locale)
+    // getDay(): 0 = Sunday, 1 = Monday, ... 6 = Saturday
+    function chooseGidByDay() {
+      const d = new Date();
+      const dow = d.getDay();
+      // Lun(1)-Mar(2)-Mer(3) -> GID1 ; Gio(4)-Ven(5)-Sab(6)-Dom(0) -> GID2
+      if (dow >= 1 && dow <= 3) return {gid: GID1, label: "Foglio1 (Lun-Mer)"};
+      return {gid: GID2, label: "Foglio2 (Gio-Dom)"};
+    }
+
+    // controlla se una riga è completamente vuota (considera anche righe undefined)
+    function isEmptyRow(row) {
+      if (!row) return true;
+      if (!Array.isArray(row)) return true;
+      for (let i = 0; i < row.length; i++) {
+        const c = row[i] ?? "";
+        if (String(c).trim() !== "") return false;
+      }
+      return true;
+    }
+
+    // helpers colore: hex -> rgb, luminanza, contrast
+    function hexToRgb(hex) {
+      hex = hex.replace('#','').trim();
+      if (hex.length === 3) hex = hex.split('').map(h=>h+h).join('');
+      const intval = parseInt(hex,16);
+      return { r: (intval>>16)&255, g: (intval>>8)&255, b: intval&255 };
+    }
+    function luminanceFromRgb(rgb) {
+      const srgb = [rgb.r/255, rgb.g/255, rgb.b/255].map(c => {
+        return (c <= 0.03928) ? c/12.92 : Math.pow((c+0.055)/1.055, 2.4);
+      });
+      return 0.2126*srgb[0] + 0.7152*srgb[1] + 0.0722*srgb[2];
+    }
+    function contrastTextColor(hexBg) {
+      try {
+        const rgb = hexToRgb(hexBg);
+        const L = luminanceFromRgb(rgb);
+        return L < 0.5 ? '#ffffff' : '#111111';
+      } catch (e) {
+        return '#ffffff';
+      }
+    }
+
+    // rimuove colonne completamente vuote nella sezione (considera header + tutte le righe)
+    function removeEmptyColumns(headers, rows) {
+      const nCols = headers.length;
+      const keep = new Array(nCols).fill(false);
+
+      for (let c = 0; c < nCols; c++) {
+        const h = (headers[c] ?? "").toString().trim();
+        if (h !== "") { keep[c] = true; continue; }
+        // se header vuoto, verifica nei dati
+        for (let r = 0; r < rows.length; r++) {
+          const cell = (rows[r][c] ?? "").toString().trim();
+          if (cell !== "") { keep[c] = true; break; }
+        }
+      }
+
+      // costruisci nuove intestazioni e righe filtrate
+      const newHeaders = [];
+      const newRows = rows.map(()=>[]); // prepare arrays
+      for (let c = 0; c < nCols; c++) {
+        if (!keep[c]) continue;
+        newHeaders.push(headers[c] ?? "");
+      }
+      for (let r = 0; r < rows.length; r++) {
+        const src = rows[r];
+        const dest = [];
+        for (let c = 0; c < nCols; c++) {
+          if (!keep[c]) continue;
+          dest.push(src[c] ?? "");
+        }
+        newRows[r] = dest;
+      }
+      return { headers: newHeaders, rows: newRows };
+    }
+
+    // render della pagina: raggruppa le sezioni (header dopo riga vuota) e le stampa
+    // ogni sezione ha un indice crescente; l'indice determina il colore della header dalla PALETTE
+    function renderTableWithSections(data) {
+      const wrap = document.getElementById('table-wrap');
+      wrap.innerHTML = "";
+
+      let i = 0;
+      let anySection = false;
+      let sectionIndex = 0; // indice progressivo delle sezioni
+
+      while (i < data.length) {
+        // skip leading empty rows
+        while (i < data.length && isEmptyRow(data[i])) i++;
+
+        if (i >= data.length) break;
+
+        // questa riga è l'intestazione della sezione
+        const headerRow = (data[i] || []).map(c => (c ?? "").toString());
+        i++;
+
+        // raccogli righe fino alla prossima riga vuota
+        const sectionRows = [];
+        while (i < data.length && !isEmptyRow(data[i])) {
+          const row = data[i] || [];
+          // normalizza lunghezza alla headerRow
+          const normalized = [];
+          for (let c = 0; c < headerRow.length; c++) {
+            normalized.push(row[c] ?? "");
+          }
+          sectionRows.push(normalized);
+          i++;
+        }
+
+        // rimuovi colonne completamente vuote nella sezione
+        const cleaned = removeEmptyColumns(headerRow, sectionRows);
+        const headers = cleaned.headers;
+        const rows = cleaned.rows;
+
+        // se dopo pulizia non ci sono colonne, salta
+        if (headers.length === 0) continue;
+
+        // crea tabella
+        const table = document.createElement('table');
+        table.style.marginBottom = "8px";
+
+        const thead = document.createElement('thead');
+        const trh = document.createElement('tr');
+        headers.forEach(h => {
+          const th = document.createElement('th');
+          th.textContent = h;
+          trh.appendChild(th);
+        });
+        thead.appendChild(trh);
+        table.appendChild(thead);
+
+        // --- ASSEGNA COLORE IN BASE A sectionIndex (progressivo) ---
+        const bg = PALETTE[ sectionIndex % PALETTE.length ];
+        thead.style.background = bg;
+        thead.style.boxShadow = "inset 0 -2px 0 rgba(0,0,0,0.06)";
+        const textColor = contrastTextColor(bg);
+        thead.querySelectorAll('th').forEach(th => th.style.color = textColor);
+
+        // corpo tabella
+        const tbody = document.createElement('tbody');
+        rows.forEach(r => {
+          const tr = document.createElement('tr');
+          headers.forEach((_, ci) => {
+            const td = document.createElement('td');
+            td.textContent = r[ci] ?? "";
+            tr.appendChild(td);
+          });
+          tbody.appendChild(tr);
+        });
+        table.appendChild(tbody);
+
+        // aggiungi tabella al DOM
+        wrap.appendChild(table);
+        const spacer = document.createElement('div');
+        spacer.className = 'spacer';
+        wrap.appendChild(spacer);
+
+        anySection = true;
+        sectionIndex++; // incrementa indice per la prossima sezione
+      }
+
+      if (!anySection) {
+        wrap.innerHTML = "<em>Nessun dato</em>";
+      }
+    }
+
+    // funzione di caricamento (prova export, gviz, pub fallback)
     async function loadCsv() {
       const messageEl = document.getElementById('message');
-      const wrap = document.getElementById('table-wrap');
-      messageEl.textContent = "Caricamento...";
-      wrap.innerHTML = "";
-      try {
-        // prima prova con export?format=csv
-        let url = exportCsvUrl(SHEET_ID, GID);
-        let res = await fetch(url, {cache: "no-store"});
-        if (!res.ok) {
-          // prova il fallback "pub?output=csv" (se hai usato "Pubblica sul web")
-          console.warn("export CSV failed, status:", res.status);
-          url = publishedCsvUrl(SHEET_ID);
-          res = await fetch(url, {cache: "no-store"});
-          if (!res.ok) throw new Error("Errore HTTP " + res.status + " (sia export che pub falliti)");
-        }
-        const text = await res.text();
+      const choice = chooseGidByDay();
+      const usedGid = choice.gid;
+      const usedLabel = choice.label;
+      messageEl.textContent = `Caricamento... (${usedLabel})`;
 
-        // usa PapaParse per ottenere array (gestisce virgolette, virgole interne, righe vuote, ecc.)
-        const parsed = Papa.parse(text.trim(), {skipEmptyLines: true});
-        if (parsed.errors && parsed.errors.length) {
-          console.warn("PapaParse warnings/errors:", parsed.errors);
-        }
-        const data = parsed.data;
-        if (!data || data.length === 0) {
-          wrap.innerHTML = "<em>Nessun dato</em>";
-          messageEl.textContent = "Caricamento completato (0 righe).";
+      const urls = [
+        exportCsvUrl(SHEET_ID, usedGid),
+        `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${encodeURIComponent(usedGid)}`,
+        publishedCsvUrl(SHEET_ID)
+      ];
+
+      let lastError = null;
+      for (let u of urls) {
+        try {
+          const res = await fetch(u, { cache: "no-store", credentials: "omit" });
+          if (res.type === 'opaque') {
+            lastError = new Error(`Risposta opaca (opaque) da ${u} — probabilmente CORS.`);
+            continue;
+          }
+          if (!res.ok) {
+            lastError = new Error(`HTTP ${res.status} ${res.statusText} da ${u}`);
+            continue;
+          }
+          const text = await res.text();
+          const parsed = Papa.parse(text, { skipEmptyLines: false });
+          const data = parsed.data || [];
+          if (data.length === 0) {
+            document.getElementById('table-wrap').innerHTML = "<em>Nessun dato</em>";
+            messageEl.textContent = `${usedLabel} - Caricamento completato (0 righe).`;
+            return;
+          }
+          renderTableWithSections(data);
+          messageEl.innerHTML = ``;
           return;
+        } catch (err) {
+          console.warn("Fetch error for", u, err);
+          lastError = err;
         }
-        renderTable(data);
-        messageEl.textContent = "";
-      } catch (err) {
-        console.error(err);
-        // messaggio d'errore utile all'utente
-        let msg = err.message || String(err);
-        // suggerimenti utili se è problema di permessi/CORS
-        msg += ". Se i dati non sono pubblici, assicurati di impostare il foglio su 'Chiunque abbia il link' oppure usa 'File → Pubblica sul web' e prova di nuovo.";
-        document.getElementById('message').textContent = "Errore: " + msg;
       }
-    }
 
-    function renderTable(data) {
-  const wrap = document.getElementById('table-wrap');
-  wrap.innerHTML = "";
-
-  let currentTable = null;
-  let currentHeaders = [];
-  let tbody = null;
-
-  data.forEach((row, index) => {
-    const isEmptyRow = row.every(cell => cell.trim() === "");
-
-    if (isEmptyRow) {
-      // Se la riga è vuota, chiude l'eventuale tabella in corso
-      if (currentTable) {
-        wrap.appendChild(currentTable);
-        const spacer = document.createElement('div');
-        spacer.style.height = "20px"; // spaziatura tra le tabelle
-        wrap.appendChild(spacer);
+      let msg = (lastError && lastError.message) ? lastError.message : "Errore sconosciuto durante il fetch.";
+      if (msg.includes('opaque') || msg.includes('CORS') || msg === 'Failed to fetch') {
+        msg = `Impossibile leggere la risposta a causa di CORS o blocco del browser (${msg}). 
+- Assicurati che il foglio sia condiviso "Chiunque abbia il link" → Visualizzatore o usa "File → Pubblica sul web".`;
+      } else if (msg.match(/HTTP 403|403/)) {
+        msg = `Accesso negato (403). Il foglio o il tab con gid=${usedGid} probabilmente non è condiviso pubblicamente.`;
+      } else if (msg.match(/HTTP 404|404/)) {
+        msg = `Risorsa non trovata (404). Verifica SHEET_ID e GID.`;
       }
-      currentTable = null;
-      currentHeaders = [];
-      tbody = null;
-      return;
+      messageEl.textContent = "Errore: " + msg;
     }
 
-    // Se non esiste una tabella attiva, crea una nuova
-    if (!currentTable) {
-      currentHeaders = row;
-      currentTable = document.createElement('table');
-      currentTable.style.marginBottom = "10px";
-
-      const thead = document.createElement('thead');
-      const trh = document.createElement('tr');
-      currentHeaders.forEach(h => {
-        const th = document.createElement('th');
-        th.textContent = h;
-        trh.appendChild(th);
-      });
-      thead.appendChild(trh);
-      currentTable.appendChild(thead);
-
-      tbody = document.createElement('tbody');
-      currentTable.appendChild(tbody);
-    } else {
-      // Riga di dati per la tabella corrente
-      const tr = document.createElement('tr');
-      currentHeaders.forEach((_, i) => {
-        const td = document.createElement('td');
-        td.textContent = row[i] ?? "";
-        tr.appendChild(td);
-      });
-      tbody.appendChild(tr);
-    }
-  });
-
-  // Aggiunge l'ultima tabella se esiste
-  if (currentTable) {
-    wrap.appendChild(currentTable);
-  }
-
-  // Se nessun dato
-  if (wrap.innerHTML.trim() === "") {
-    wrap.innerHTML = "<em>Nessun dato</em>";
-  }
-}
-
-    // Carica automaticamente quando il DOM è pronto
+    // evento DOM pronto: carica automaticamente e collega il pulsante
     document.addEventListener('DOMContentLoaded', () => {
-      // carica subito
       loadCsv();
-      // e collega il bottone a ricarica manuale
-      document.getElementById('load').addEventListener('click', loadCsv);
+      const btn = document.getElementById('reload');
+      if (btn) btn.addEventListener('click', loadCsv);
     });
   </script>
 </body>
